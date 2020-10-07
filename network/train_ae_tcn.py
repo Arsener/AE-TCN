@@ -1,13 +1,8 @@
 import os
 import json
-import math
-import torch
-import torch.nn as nn
 import numpy as np
-import pandas as pd
 import argparse
 import time, datetime
-import random
 import matplotlib.pyplot as plt
 
 from ae_tcn import *
@@ -54,9 +49,9 @@ def parse_arguments():
     )
     parser.add_argument('--dataset', type=str, metavar='D', default='data',
                         help='dataset names')
-    parser.add_argument('--data_path', type=str, metavar='PATH', default='data',
+    parser.add_argument('--data_path', type=str, metavar='PATH', default='../all_sepsis_patient_data',
                         help='path where dataset is saved')
-    parser.add_argument('--save_path', type=str, metavar='PATH', default='./model',
+    parser.add_argument('--save_path', type=str, metavar='PATH', default='../model',
                         help='path where the estimator is/should be saved')
     parser.add_argument('--load_path', type=str, metavar='PATH', required=False, default=None,
                         help='path where the encoder is saved')
