@@ -138,7 +138,7 @@ if __name__ == '__main__':
     plt.ylabel("Mean Square Loss")
     plt.legend()
     plt.savefig('test.png')
-    plt.show()
+    # plt.show()
     # 保存模型
     torch.save(model.state_dict(), os.path.join(args.save_path, dataset + '_AE_TCN.pth'))
     # model.save(os.path.join(args.save_path, dataset))

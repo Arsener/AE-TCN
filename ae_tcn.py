@@ -183,8 +183,13 @@ class AutoEncoderTCN(nn.Module):
                  final_relu=False):
         super(AutoEncoderTCN, self).__init__()
         encoder = TCNEncoder(in_channels, hidden_channels, depth, kernel_size, vector_size, final_relu)
-        decoder = TCNDecoder(vector_size, expand_size, hidden_channels, in_channels, depth, kernel_size, final_relu)
-        self.ae_tcn = nn.Sequential(encoder, decoder)
+        decoder = TCNDecoder(vector_size, expand_size, hidden_channels, hidden_channels, depth, kernel_size, final_relu)
+        trans_1 = Transpose(1, 2)
+        linear = nn.Linear(hidden_channels, in_channels)
+        trans_2 = Transpose(1, 2)
+        self.ae_tcn = nn.Sequential(
+            encoder, decoder, trans_1, linear, trans_2
+        )
 
     def forward(self, x):
         return self.ae_tcn(x)
