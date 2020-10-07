@@ -43,7 +43,7 @@ class TCNBlock(nn.Module):
     如果relu为True，则每个block块在输出之前经过一个激活函数
     '''
 
-    def __init__(self, in_channels, out_channels, kernel_size, dilation, relu=False):
+    def __init__(self, in_channels, out_channels, kernel_size, dilation, final_relu=False):
         super(TCNBlock, self).__init__()
         # 计算padding
         padding = (kernel_size - 1) * dilation
@@ -51,6 +51,7 @@ class TCNBlock(nn.Module):
         # block内第一层，conv + weight norm + relu
         '''
         是否使用weight norm还是其他norm方式，待定
+        目前使用WN，还可以考虑使用BN，不过LN不适合
         '''
         conv1 = nn.utils.weight_norm(nn.Conv1d(
             in_channels, out_channels, kernel_size, padding=padding, dilation=dilation
@@ -75,7 +76,7 @@ class TCNBlock(nn.Module):
             in_channels, out_channels, 1
         ) if in_channels != out_channels else None
 
-        self.relu = nn.LeakyReLU() if relu else None
+        self.relu = nn.LeakyReLU() if final_relu else None
 
     def forward(self, x):
         out_tcn = self.tcn(x)
@@ -88,7 +89,7 @@ class DilationTCN(nn.Module):
     堆叠的TCN层
     '''
 
-    def __init__(self, in_channels, hidden_channels, out_channels, depth, kernel_size):
+    def __init__(self, in_channels, hidden_channels, out_channels, depth, kernel_size, final_relu):
         super(DilationTCN, self).__init__()
 
         layers = []
@@ -96,12 +97,12 @@ class DilationTCN(nn.Module):
         for i in range(depth - 1):
             in_channels_block = in_channels if i == 0 else hidden_channels
             layers += [TCNBlock(
-                in_channels_block, hidden_channels, kernel_size, dilation_size
+                in_channels_block, hidden_channels, kernel_size, dilation_size, final_relu
             )]
             dilation_size *= 2
 
         layers += [TCNBlock(
-            hidden_channels, out_channels, kernel_size, dilation_size
+            hidden_channels, out_channels, kernel_size, dilation_size, final_relu
         )]
 
         self.network = nn.Sequential(*layers)
@@ -116,9 +117,9 @@ class TCNEncoder(nn.Module):
     目前采用的方式：先MaxPooling，之后加一个linear层
     '''
 
-    def __init__(self, in_channels, hidden_channels, depth, kernel_size, vector_size):
+    def __init__(self, in_channels, hidden_channels, depth, kernel_size, vector_size, final_relu):
         super(TCNEncoder, self).__init__()
-        dilation_tcn = DilationTCN(in_channels, hidden_channels, hidden_channels, depth, kernel_size)
+        dilation_tcn = DilationTCN(in_channels, hidden_channels, hidden_channels, depth, kernel_size, final_relu)
         # 先进行maxpooling
         pooling = nn.AdaptiveMaxPool1d(1)
         # 经过pooling后，L为1，交换C和L两个维度，输入线性层
@@ -155,13 +156,13 @@ class TCNDecoder(nn.Module):
     目前实现的是使用线性变换的方式
     '''
 
-    def __init__(self, vector_size, expand_size, hidden_channels, out_channels, depth, kernel_size):
+    def __init__(self, vector_size, expand_size, hidden_channels, out_channels, depth, kernel_size, final_relu):
         super(TCNDecoder, self).__init__()
         # 先Transpose
         trans = Transpose(1, 2)
         # 扩展
         linear = nn.Linear(1, expand_size)
-        dilation_cnn = DilationTCN(vector_size, hidden_channels, out_channels, depth, kernel_size)
+        dilation_cnn = DilationTCN(vector_size, hidden_channels, out_channels, depth, kernel_size, final_relu)
         self.decoder = nn.Sequential(
             trans, linear, dilation_cnn
         )
@@ -178,10 +179,11 @@ class AutoEncoderTCN(nn.Module):
     2. TCNDecoder
     '''
 
-    def __init__(self, in_channels, hidden_channels, depth, kernel_size, vector_size, expand_size):
+    def __init__(self, in_channels=4, hidden_channels=10, depth=5, kernel_size=2, vector_size=5, expand_size=24,
+                 final_relu=False):
         super(AutoEncoderTCN, self).__init__()
-        encoder = TCNEncoder(in_channels, hidden_channels, depth, kernel_size, vector_size)
-        decoder = TCNDecoder(vector_size, expand_size, hidden_channels, in_channels, depth, kernel_size)
+        encoder = TCNEncoder(in_channels, hidden_channels, depth, kernel_size, vector_size, final_relu)
+        decoder = TCNDecoder(vector_size, expand_size, hidden_channels, in_channels, depth, kernel_size, final_relu)
         self.ae_tcn = nn.Sequential(encoder, decoder)
 
     def forward(self, x):
