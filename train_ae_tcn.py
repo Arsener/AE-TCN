@@ -14,6 +14,7 @@ from ae_tcn import *
 from load_data import load_dataset
 from utils import Dataset
 
+
 # plt.rcParams['figure.dpi'] = 300
 
 
@@ -111,6 +112,9 @@ if __name__ == '__main__':
     criterion = nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=params['lr'])
 
+    # 记录开始时间
+    t1 = time.time()
+    d1 = datetime.datetime.now()
     epoch = 0
     train_loss = []
     test_loss = []
@@ -130,6 +134,10 @@ if __name__ == '__main__':
         with torch.no_grad():
             train_loss.append(criterion(train_data, model(train_data)).item())
             test_loss.append(criterion(test_data, model(test_data)).item())
+
+    t2 = time.time()
+    with open('time cost.txt', 'w', encoding='utf8') as f:
+        f.write('start time: {}\nend time: {}\ninterval: {}min'.format(d1, datetime.datetime.now(), (t2 - t1) / 60))
 
     # 展示loss
     plt.plot(range(epoch), train_loss, 'b', label='train loss')
