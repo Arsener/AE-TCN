@@ -1,12 +1,15 @@
 import os
 import json
+import torch
+import torch.nn as nn
 import numpy as np
 import argparse
 import time, datetime
 import matplotlib.pyplot as plt
+import pandas as pd
 
 from ae_tcn import *
-from load_data import load_dataset
+from load_data import load_dataset, load_encoded_data
 from utils import Dataset
 
 
@@ -69,6 +72,35 @@ def parse_arguments():
     return parser.parse_args()
 
 
+gpu = 0
+
+
+def load_encoder(dataset, model_path, cuda, gpu=0):
+    hyper_para = None
+    with open(os.path.join(model_path, 'hyperparameters.json'),
+              'r', encoding='utf8') as f:
+        hyper_para = json.load(f)
+
+    model = AutoEncoderTCN(
+        in_channels=hyper_para['in_channels'],
+        hidden_channels=hyper_para['hidden_channels'],
+        depth=hyper_para['depth'],
+        vector_size=hyper_para['vector_size'],
+        expand_size=hyper_para['expand_size'],
+        kernel_size=hyper_para['kernel_size'],
+        final_relu=False  # params['final_relu']
+    )
+    model.load_state_dict(torch.load(
+        os.path.join(model_path, '{}_AE_TCN.pth'.format(dataset))
+    ))
+
+    layers = list(model.ae_tcn.children())
+    encoder = nn.Sequential(*layers[:1])
+    if cuda:
+        encoder = encoder.cuda(gpu)
+    return encoder
+
+
 if __name__ == '__main__':
     args = parse_arguments()
     cuda = args.cuda
@@ -80,13 +112,7 @@ if __name__ == '__main__':
     dataset = args.dataset
     gpu = args.gpu
     print('Processing', dataset)
-    all_data = load_dataset(args.data_path, dataset)
-    np.random.shuffle(all_data)
-
-    # 将数据划分为训练集和测试集
-    ratio = args.train_ratio
-    nums, *_ = all_data.shape
-    train_X, test_X = all_data[:int(nums * ratio)], all_data[int(nums * ratio):]
+    train_X, test_X = load_dataset(args.data_path, dataset, args.train_ratio)
     print('Shape of train samples', train_X.shape)
 
     # 创建模型，获取参数
@@ -122,7 +148,7 @@ if __name__ == '__main__':
             output = model(batch)
             loss = criterion(output, batch)
             loss.backward()
-            print(epoch, 'loss: ', loss)
+            print(epoch + 1, 'loss: ', loss)
             optimizer.step()
 
         epoch += 1
@@ -145,3 +171,20 @@ if __name__ == '__main__':
     # 保存模型
     torch.save(model.state_dict(), os.path.join(args.save_path, dataset + '_AE_TCN.pth'))
     # model.save(os.path.join(args.save_path, dataset))
+
+    # 加载患者出ICU时的数据
+    X, label = load_encoded_data(args.data_path, dataset)
+    # 取出模型中encoder部分
+    layers = list(model.ae_tcn.children())
+    encoder = nn.Sequential(*layers[:1])
+    # 使用encoder将患者出ICU时的数据进行编码，并将编码结果保存。
+    X = torch.from_numpy(X).cuda(gpu) if cuda else torch.from_numpy(X)
+    vector = encoder(X).squeeze(1).detach()
+    print(vector.shape)
+    v = vector.cpu().numpy() if cuda else vector.numpy()
+    d = np.concatenate([v, label], axis=1)
+    encoded_df = pd.DataFrame(d, columns=['value{}'.format(i) for i in range(10)] + ['death'])
+    encoded_df.to_csv('../all_sepsis_patient_data/encoded_data.csv', index=False)
+
+
+
