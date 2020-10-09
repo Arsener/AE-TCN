@@ -139,6 +139,9 @@ if __name__ == '__main__':
     epoch = 0
     train_loss = []
     test_loss = []
+    with open('train_log.txt', 'w', encoding='utf8') as f:
+        f.write('Start a new training process!!!\n')
+
     while epoch < params['epochs']:
         print('Epoch: ', epoch + 1)
         for batch in train_generator:
@@ -155,6 +158,8 @@ if __name__ == '__main__':
         with torch.no_grad():
             train_loss.append(criterion(train_data, model(train_data)).item())
             test_loss.append(criterion(test_data, model(test_data)).item())
+        with open('train_log.txt', 'a', encoding='utf8') as f:
+            f.write("Total epochs: {}, current epoch: {}, train loss:{}, test_loss{}\n".format(params['epochs'], epoch, train_loss[-1], test_loss[-1]))
 
     t2 = time.time()
     with open('time cost.txt', 'w', encoding='utf8') as f:
@@ -184,7 +189,7 @@ if __name__ == '__main__':
     v = vector.cpu().numpy() if cuda else vector.numpy()
     d = np.concatenate([v, label], axis=1)
     encoded_df = pd.DataFrame(d, columns=['value{}'.format(i) for i in range(10)] + ['death'])
-    encoded_df.to_csv('../all_sepsis_patient_data/encoded_data.csv', index=False)
+    encoded_df.to_csv('../all_sepsis_patient_data/encoded_{}.csv'.format(dataset), index=False)
 
 
 

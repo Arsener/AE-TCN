@@ -177,6 +177,7 @@ class AutoEncoderTCN(nn.Module):
     包括：
     1. TCNEncoder
     2. TCNDecoder
+    3. 一个线性层
     '''
 
     def __init__(self, in_channels=4, hidden_channels=10, depth=5, kernel_size=2, vector_size=5, expand_size=24,
