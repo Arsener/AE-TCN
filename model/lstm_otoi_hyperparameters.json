@@ -1,0 +1,1 @@
+{"batch_size": 256, "hidden_size": 10, "epochs": 3, "nb_feature": 4, "early_stopping": 2, "lr": 0.01, "expand_size": 24, "cuda": true, "gpu": 0}

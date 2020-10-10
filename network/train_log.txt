@@ -1,2 +1,4 @@
 Start a new training process!!!
-Total epochs: 1, current epoch: 1, train loss:0.5325373737907111, test_loss0.48072738424333944
+Total epochs: 3, current epoch: 1, train loss:0.8719877293722726, test_loss0.8859745492608158
+Total epochs: 3, current epoch: 2, train loss:0.7532264238567753, test_loss0.7815322079157603
+Total epochs: 3, current epoch: 3, train loss:0.6979504623539714, test_loss0.7289391663675597
