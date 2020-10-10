@@ -28,7 +28,7 @@ class Decoder(nn.Module):
         self.lstm = nn.LSTM(input_size=nb_feature, hidden_size=hidden_size,
                             num_layers=num_layers, batch_first=True, dropout=dropout, bias=True)
 
-    def forward(self, input_seq, hidden_cell):
+    def forward(self, input_seq, hidden_cell=None):
         # print('----\n', input_seq, hidden_cell)
         if hidden_cell is None:
             output, hidden_cell = self.lstm(input_seq)
@@ -62,4 +62,16 @@ class AutoEncoderLSTM_otoi(nn.Module):
 
 
 class AutoEncoderLSTM_expo(nn.Module):
-    pass
+    def __init__(self, hidden_size, nb_feature, num_layers=1, dropout=0):
+        super(AutoEncoderLSTM_expo, self).__init__()
+        self.encoder = Encoder(hidden_size, nb_feature, num_layers, dropout)
+        self.decoder = Decoder(hidden_size, hidden_size, num_layers, dropout)
+        self.linear = nn.Linear(in_features=hidden_size, out_features=nb_feature)
+
+    def forward(self, input_seq):
+        input_decoder = self.encoder(input_seq)[-1:, :, :].transpose(0, 1)
+        # print(input_decoder.shape)
+        input_decoder = input_decoder.expand(-1, input_seq.shape[1], -1)
+        # print(input_decoder.shape)
+        output, _ = self.decoder(input_decoder)
+        return self.linear(output)

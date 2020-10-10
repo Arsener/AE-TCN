@@ -16,12 +16,12 @@ from utils import Dataset
 # plt.rcParams['figure.dpi'] = 300
 
 
-def create_model(file, model_type):
+def create_model(file, model_type, cuda):
     # 从文件中读取超参数
     hf = open(os.path.join(file), 'r')
     params = json.load(hf)
     hf.close()
-    params['cuda'] = args.cuda
+    params['cuda'] = cuda
     params['gpu'] = args.gpu
 
     # create model
@@ -34,7 +34,10 @@ def create_model(file, model_type):
             gpu=params['gpu']
         )
     elif model_type == 'expo':
-        pass
+        model = AutoEncoderLSTM_expo(
+            hidden_size=params['hidden_size'],
+            nb_feature=params['nb_feature']
+        )
 
     # 将参数保存
     with open(
@@ -66,7 +69,7 @@ def parse_arguments():
     parser.add_argument('--gpu', type=int, default=0, metavar='GPU',
                         help='index of GPU used for computations (default: 0)')
     parser.add_argument('--hyper', type=str, metavar='FILE',
-                        default='lstm_otoi_hyperparameters.json',
+                        default='otoi',
                         help='path of the file of hyperparameters to use; ' +
                              'for training; must be a JSON file')
     parser.add_argument('--train_ratio', type=float, default=0.8,
@@ -117,7 +120,8 @@ if __name__ == '__main__':
     print('Shape of train samples', train_X.shape)
 
     # 创建模型，获取参数
-    model, params = create_model(args.hyper, model_type)
+    hyper = 'lstm_{}_hyperparameters.json'.format(args.hyper)
+    model, params = create_model(hyper, model_type, cuda)
 
     # 训练模型
     train_data = torch.from_numpy(train_X)
@@ -147,7 +151,6 @@ if __name__ == '__main__':
         print('Epoch: ', epoch + 1)
         for batch in train_generator:
             if cuda:
-                print('kkkkkkkkkkkkkkkkkkkkkkkk')
                 batch = batch.cuda(gpu)
             optimizer.zero_grad()
             output = model(batch)
