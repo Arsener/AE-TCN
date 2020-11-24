@@ -11,6 +11,7 @@ import pandas as pd
 from ae_lstm import *
 from load_data import load_dataset, load_encoded_data
 from utils import Dataset
+from pytorchtools import EarlyStopping
 
 
 # plt.rcParams['figure.dpi'] = 300
@@ -56,7 +57,7 @@ def parse_arguments():
     )
     parser.add_argument('--model', type=str, metavar='D', default='otoi',
                         help='model names')
-    parser.add_argument('--dataset', type=str, metavar='D', default='data',
+    parser.add_argument('--dataset', type=str, metavar='D', default='train_data',
                         help='dataset names')
     parser.add_argument('--data_path', type=str, metavar='PATH', default='../all_sepsis_patient_data',
                         help='path where dataset is saved')
@@ -137,6 +138,7 @@ if __name__ == '__main__':
     )
     criterion = nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=params['lr'])
+    early_stopping = EarlyStopping(params['early_stopping'], path=os.path.join(args.save_path, '{}_AE_LSTM_{}.pth'.format(dataset, model_type)))
 
     # 记录开始时间
     t1 = time.time()
@@ -161,8 +163,17 @@ if __name__ == '__main__':
 
         epoch += 1
         with torch.no_grad():
-            train_loss.append(criterion(train_data, model(train_data)).item())
-            test_loss.append(criterion(test_data, model(test_data)).item())
+            tr_l = criterion(train_data, model(train_data)).item()
+            te_l = criterion(test_data, model(test_data)).item()
+            train_loss.append(tr_l)
+            test_loss.append(te_l)
+            early_stopping(te_l, model)
+            # 若满足 early stopping 要求
+            if early_stopping.early_stop:
+                print("Early stopping")
+                # 结束模型训练
+                break
+                
         with open('train_log.txt', 'a', encoding='utf8') as f:
             f.write("Total epochs: {}, current epoch: {}, train loss:{}, test_loss{}\n".format(params['epochs'], epoch, train_loss[-1], test_loss[-1]))
 
@@ -179,7 +190,7 @@ if __name__ == '__main__':
     plt.savefig('test.png')
     # plt.show()
     # 保存模型
-    torch.save(model.state_dict(), os.path.join(args.save_path, dataset + '_AE_LSTM_{}.pth'.format(model_type)))
+#     torch.save(model.state_dict(), os.path.join(args.save_path, dataset + '_AE_LSTM_{}.pth'.format(model_type)))
     # model.save(os.path.join(args.save_path, dataset))
 
     # 加载患者出ICU时的数据
@@ -194,7 +205,7 @@ if __name__ == '__main__':
     print(vector.shape)
     v = vector.cpu().numpy() if cuda else vector.numpy()
     d = np.concatenate([v, label], axis=1)
-    encoded_df = pd.DataFrame(d, columns=['value{}'.format(i) for i in range(10)] + ['death'])
+    encoded_df = pd.DataFrame(d, columns=['value{}'.format(i) for i in range(params['hidden_size'])] + ['death'])
     encoded_df.to_csv('../all_sepsis_patient_data/encoded_{}_lstm_{}.csv'.format(dataset, model_type), index=False)
 
 

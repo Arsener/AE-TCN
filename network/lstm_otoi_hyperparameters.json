@@ -1,9 +1,9 @@
 {
-    "batch_size": 256,
-    "hidden_size": 10,
-    "epochs": 3,
+    "batch_size": 128,
+    "hidden_size": 20,
+    "epochs": 1000,
     "nb_feature": 4,
-    "early_stopping": 2,
+    "early_stopping": 10,
     "lr": 0.01,
     "expand_size": 24
 
