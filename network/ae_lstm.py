@@ -58,7 +58,7 @@ class AutoEncoderLSTM_otoi(nn.Module):
             output_decoder, hidden_cell = self.decoder(input_decoder, hidden_cell)
             input_decoder = output_decoder
             output[:, i, :] = output_decoder[:, 0, :]
-        return self.linear(output)
+        return self.linear(output), input_decoder.squeeze(1)
 
 
 class AutoEncoderLSTM_expo(nn.Module):

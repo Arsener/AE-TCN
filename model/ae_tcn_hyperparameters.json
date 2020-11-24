@@ -1,1 +1,1 @@
-{"cuda": true, "expand_size": 24, "depth": 5, "batch_size": 128, "early_stopping": 10, "hidden_channels": 30, "lr": 0.001, "kernel_size": 3, "epochs": 500, "gpu": 0, "vector_size": 20, "in_channels": 4}
+{"hidden_channels": 30, "expand_size": 24, "lr": 0.001, "cuda": true, "gpu": 0, "kernel_size": 3, "in_channels": 4, "epochs": 500, "vector_size": 20, "depth": 5, "batch_size": 128, "early_stopping": 10}

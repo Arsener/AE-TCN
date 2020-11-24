@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 from load_data import *
-from ae_tcn import *
+from ae_lstm import *
 from utils import *
 
 
@@ -53,19 +53,19 @@ class IDEC(nn.Module):
     def __init__(self,
                  n_clusters,
                  alpha=1.0,
-                 hyper='ae_tcn_hyperparameters',
-                 model_name='train_data_AE_TCN',
+                 hyper='lstm_otoi_hyperparameters',
+                 model_name='train_data_AE_LSTM_otoi',
                  model_path='../model'):
         super(IDEC, self).__init__()
         self.alpha = alpha
-
+        self.n_clusters = n_clusters
         # 自编码器
-        self.ae, n_z = self.load_ae(hyper=hyper, model_name=model_name, model_path=model_path)
+        self.ae, self.n_z = self.load_ae(hyper=hyper, model_name=model_name, model_path=model_path)
         # cluster layer
         '''
         n_cluster个聚类中心（初始化方式？？？）
         '''
-        self.cluster_layer = Parameter(torch.Tensor(n_clusters, n_z))
+        self.cluster_layer = Parameter(torch.Tensor(self.n_clusters, self.n_z))
         torch.nn.init.xavier_normal_(self.cluster_layer.data)
 
     # 获得预训练过的自编码器
@@ -75,20 +75,17 @@ class IDEC(nn.Module):
                   'r', encoding='utf8') as f:
             hyper_para = json.load(f)
 
-        model = AutoEncoderTCN(
-            in_channels=hyper_para['in_channels'],
-            hidden_channels=hyper_para['hidden_channels'],
-            depth=hyper_para['depth'],
-            vector_size=hyper_para['vector_size'],
-            expand_size=hyper_para['expand_size'],
-            kernel_size=hyper_para['kernel_size'],
-            final_relu=False  # params['final_relu']
+        model = AutoEncoderLSTM_otoi(
+            hidden_size=hyper_para['hidden_size'],
+            nb_feature=hyper_para['nb_feature'],
+            if_cuda=hyper_para['cuda'],
+            gpu=hyper_para['gpu']
         )
         model.load_state_dict(torch.load(
             os.path.join(model_path, '{}.pth'.format(model_name))
         ))
 
-        return model.double(), hyper_para['vector_size']
+        return model.double(), hyper_para['hidden_size']
 
     def forward(self, x):
         # x_bar: 重构结果，z: 编码特征
@@ -125,7 +122,7 @@ def parse_arguments():
     parser.add_argument('--gpu', type=int, default=0, metavar='GPU',
                         help='index of GPU used for computations (default: 0)')
     parser.add_argument('--hyper', type=str, metavar='FILE',
-                        default='idec_hyperparameters.json',
+                        default='idec_tcn_hyperparameters.json',
                         help='path of the file of hyperparameters to use; ' +
                              'for training; must be a JSON file')
     parser.add_argument('--train_ratio', type=float, default=1.0,
@@ -148,6 +145,7 @@ if __name__ == "__main__":
     dataset = args.dataset
     print('Processing', dataset)
     train_X, train_y, *_ = load_labeled_dataset(args.data_path, dataset, args.train_ratio)
+    train_X = train_X.swapaxes(1, 2)
     print('Shape of train samples', train_X.shape, train_y.shape)
 
     model = IDEC(n_clusters=params['n_clusters'])
@@ -185,12 +183,14 @@ if __name__ == "__main__":
 
     criterion1 = nn.MSELoss()
     criterion2 = nn.KLDivLoss()
-    model.train()
+
+    rec_loss, clu_loss, ttl_loss = [], [], []
+
     p = None
     for epoch in range(params['epochs']):
 
         if epoch % params['update_interval'] == 0:
-
+            model.eval()
             _, tmp_q = model(train_data)
 
             # update target distribution p
@@ -204,6 +204,7 @@ if __name__ == "__main__":
             delta_label = np.sum(y_pred != y_pred_last).astype(
                 np.float32) / y_pred.shape[0]
             y_pred_last = y_pred
+            print('Epoch: {}, delta_data: {}'.format(epoch, delta_label))
 
             # acc = cluster_acc(y, y_pred)
             # nmi = nmi_score(y, y_pred)
@@ -215,9 +216,54 @@ if __name__ == "__main__":
                 print('delta_label {:.4f}'.format(delta_label), '< tol',
                       params['tol'])
                 print('Reached tolerance threshold. Stopping training.')
+
+                # 保存编码后的数据、标签、聚类中心、模型
+                # 保存模型
+                torch.save(model.state_dict(), os.path.join(args.save_path, dataset + '_IDEC_LSTM.pth'))
+                # 加载患者出ICU时的数据
+                X, label = load_encoded_data(args.data_path, dataset)
+                X = X.swapaxes(1, 2)
+                # 取出模型中encoder部分
+                # layers = list(model.ae.children())
+                # encoder = nn.Sequential(*layers[:1])
+                encoder = model.ae
+                # 使用encoder将患者出ICU时的数据进行编码，并将编码结果保存。
+                X = torch.from_numpy(X).cuda(gpu) if cuda else torch.from_numpy(X)
+                # vector = encoder(X).squeeze(1).detach()
+                vector = encoder(X)[1].detach()
+                print(vector.shape)
+                v = vector.cpu().numpy() if cuda else vector.numpy()
+                d = np.concatenate([v, label], axis=1)
+
+                # 获取预测的类别
+                _, final_q = model(X)
+
+                # update target distribution p
+                final_q = final_q.data
+                # final_p = target_distribution(final_q)
+
+                # evaluate clustering performance
+                if cuda:
+                    final_q = final_q.cpu()
+                y_pred = final_q.numpy().argmax(1).reshape(-1, 1)
+                d = np.concatenate([d, y_pred], axis=1)
+
+                encoded_df = pd.DataFrame(d, columns=['value{}'.format(i) for i in range(vector.shape[1])] + [
+                    'death', 'label_pred'])
+                encoded_df.to_csv('../all_sepsis_patient_data/encoded_{}_idec_lstm.csv'.format(dataset), index=False)
                 break
 
+        model.eval()
+        with torch.no_grad():
+            x_bar, q = model(train_data)
+            rec_l = criterion1(train_data, x_bar).item()
+            clu_l = criterion2(q.log(), p).item()
+            ttl_l = params['gamma'] * clu_l + rec_l
+            rec_loss.append(rec_l)
+            clu_loss.append(clu_l)
+            ttl_loss.append(ttl_l)
 
+        model.train()
         for batch_idx, (batch_X, _, idx) in enumerate(train_loader):
             if cuda:
                 batch_X = batch_X.cuda(gpu)
@@ -233,3 +279,13 @@ if __name__ == "__main__":
             loss.backward()
             print(epoch + 1, 'loss: ', loss)
             optimizer.step()
+
+    epoch = len(rec_loss)
+    plt.plot(range(epoch), rec_loss, 'b', label='reconstruct loss')
+    plt.plot(range(epoch), clu_loss, 'r', label='cluster loss')
+    plt.plot(range(epoch), ttl_loss, 'g', label='total loss')
+    plt.xlabel("#Epochs")
+    plt.ylabel("Loss")
+    plt.legend()
+    plt.savefig('test.png')
+

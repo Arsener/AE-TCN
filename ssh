@@ -1,4 +1,4 @@
-scp -r datamining@166.111.83.59:~/gmh/AutoEncoder/network C:\Users\Arsener\PycharmProjects\AE-TCN\network_copy
+scp -r datamining@166.111.83.59:~/gmh/AutoEncoder/network C:\Users\Arsener\PycharmProjects\AE-TCN\network
 
 scp -r datamining@166.111.83.59:~/gmh/AutoEncoder/all_sepsis_patient_data C:\Users\Arsener\PycharmProjects\AE-TCN\all_sepsis_patient_data
 

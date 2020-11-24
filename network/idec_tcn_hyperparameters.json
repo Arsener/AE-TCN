@@ -4,7 +4,7 @@
     "batch_size": 128,
     "gamma": 0.1,
     "update_interval": 1,
-    "epochs": 5,
+    "epochs": 500,
     "tol": 0.001
 
 
