@@ -151,7 +151,7 @@ if __name__ == '__main__':
             if cuda:
                 batch = batch.cuda(gpu)
             optimizer.zero_grad()
-            output = model(batch)
+            output, _ = model(batch)
             loss = criterion(output, batch)
             loss.backward()
             print(epoch + 1, 'loss: ', loss)
@@ -160,8 +160,8 @@ if __name__ == '__main__':
         epoch += 1
         model.eval()
         with torch.no_grad():
-            tr_l = criterion(train_data, model(train_data)).item()
-            te_l = criterion(test_data, model(test_data)).item()
+            tr_l = criterion(train_data, model(train_data)[0]).item()
+            te_l = criterion(test_data, model(test_data)[0]).item()
             train_loss.append(tr_l)
             test_loss.append(te_l)
             early_stopping(te_l, model)

@@ -1,1 +1,1 @@
-{"batch_size": 256, "hidden_size": 10, "epochs": 3, "nb_feature": 4, "early_stopping": 2, "lr": 0.01, "expand_size": 24, "cuda": false, "gpu": 0}
+{"nb_feature": 4, "cuda": true, "early_stopping": 2, "lr": 0.01, "hidden_size": 10, "expand_size": 24, "batch_size": 256, "epochs": 200, "gpu": 0}

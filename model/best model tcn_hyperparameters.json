@@ -1,0 +1,1 @@
+{"alpha": 1, "hidden_channels": 30, "cuda": true, "depth": 5, "gpu": 0, "expand_size": 24, "output_size": 1, "beta": 0.1, "epochs": 300, "kernel_size": 3, "batch_size": 128, "vector_size": 20, "lr": 0.001, "early_stopping": 20, "in_channels": 4}

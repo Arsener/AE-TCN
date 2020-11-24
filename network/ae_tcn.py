@@ -203,9 +203,12 @@ class AutoEncoderTCN(nn.Module):
         self.ae_tcn = nn.Sequential(
             encoder, relu, decoder, trans_1, linear, trans_2
         )
+        self.enc = nn.Sequential(
+            encoder
+        )
 
     def forward(self, x):
-        return self.ae_tcn(x)
+        return self.ae_tcn(x), self.enc(x).squeeze(1)
 
     
 class TCNClassifier(nn.Module):
